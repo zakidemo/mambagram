@@ -1,0 +1,43 @@
+# Core ML
+torch>=2.1.0
+torchaudio>=2.1.0
+numpy>=1.24.0
+scipy>=1.11.0
+
+# Mamba / State Space Models
+# Note: install with `pip install mamba-ssm causal-conv1d --no-build-isolation`
+# after installing torch. See README.
+
+# Audio processing
+librosa>=0.10.1
+soundfile>=0.12.1
+pywavelets>=1.4.1
+ssqueezepy>=0.6.4
+
+# Data & experiments
+pandas>=2.0.0
+scikit-learn>=1.3.0
+tqdm>=4.65.0
+pyyaml>=6.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.2
+
+# Logging & config
+wandb>=0.16.0
+tensorboard>=2.14.0
+hydra-core>=1.3.2
+
+# Jupyter for exploration
+jupyter>=1.0.0
+ipykernel>=6.25.0
+ipywidgets>=8.1.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Code quality
+black>=23.9.0
+ruff>=0.0.290

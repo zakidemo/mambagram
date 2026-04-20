@@ -1,0 +1,79 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+mambagram_env/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Project-specific: do not commit these
+data/
+results/
+*.wav
+*.mp3
+*.flac
+*.h5
+*.pth
+*.pt
+*.ckpt
+*.onnx
+wandb/
+runs/
+logs/
+mlruns/
+
+# Paper build artifacts
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.bbl
+paper/*.blg
+paper/*.synctex.gz
+paper/*.fls
+paper/*.fdb_latexmk
+paper/*.toc
+
+# Large files / temporary
+*.tmp
+*.bak
+*.swp
+*~
+.cache/
