@@ -88,4 +88,4 @@ Built on top of the excellent [mamba-ssm](https://github.com/state-spaces/mamba)
 
 ## Contact
 
-For questions, issues, or collaboration: open a GitHub issue or contact `<your-email>`.
+For questions, issues, or collaboration: open a GitHub issue or contact `zakaria.naili@univ-annaba.dz>`.
