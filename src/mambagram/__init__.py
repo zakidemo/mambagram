@@ -2,6 +2,7 @@
 
 from mambagram._warnings import *  # suppress known harmless warnings
 from mambagram.layers import MambaGramLayer
+from mambagram.selective_layer import SelectiveMambaGramLayer
 
-__version__ = "0.0.1"
-__all__ = ["MambaGramLayer"]
+__version__ = "0.0.2"
+__all__ = ["MambaGramLayer", "SelectiveMambaGramLayer"]
