@@ -67,8 +67,15 @@ def main():
     print(f"Max absolute difference:  {abs_diff.max().item():.2e}")
     print(f"Mean absolute difference: {abs_diff.mean().item():.2e}")
 
-    rel_diff = abs_diff / (H_recurrent.abs().clamp(min=1e-8))
-    print(f"Max relative difference:  {rel_diff.max().item():.2e}")
+    # Only compute relative diff where the reference output is meaningfully large
+    # (otherwise divide-by-almost-zero creates misleading numbers)
+    mask = H_recurrent.abs() > 0.01 * H_recurrent.abs().max()
+    if mask.any():
+        rel_diff = abs_diff[mask] / H_recurrent.abs()[mask]
+        print(f"Max rel diff (on significant values): {rel_diff.max().item():.2e}")
+        print(f"Mean rel diff (on significant values): {rel_diff.mean().item():.2e}")
+    else:
+        print("Warning: no significant values in recurrent output")
 
     if abs_diff.max().item() < 1e-3:
         print("✅ FFT path matches recurrent path within floating-point tolerance.\n")
