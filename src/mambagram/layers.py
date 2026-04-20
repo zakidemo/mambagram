@@ -143,13 +143,17 @@ class MambaGramLayer(nn.Module):
             return -torch.nn.functional.softplus(self.raw_alpha)
         return self.alpha
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, method: str = "fft") -> torch.Tensor:
         """
         Run the diagonal complex SSM over a batch of waveforms.
 
         Parameters
         ----------
         x : (batch, length) real float32 tensor.
+        method : {'fft', 'recurrent'}, default 'fft'
+            Computation backend.
+            - 'fft': fast parallel convolution via torch.fft. O(L log L).
+            - 'recurrent': slow reference loop. O(L). Useful for correctness checks.
 
         Returns
         -------
@@ -158,35 +162,103 @@ class MambaGramLayer(nn.Module):
         if x.dim() != 2:
             raise ValueError(f"Expected input of shape (batch, length); got {x.shape}")
 
+        if method == "fft":
+            return self._forward_fft(x)
+        elif method == "recurrent":
+            return self._forward_recurrent(x)
+        else:
+            raise ValueError(f"Unknown method='{method}'. Use 'fft' or 'recurrent'.")
+
+    def _forward_recurrent(self, x: torch.Tensor) -> torch.Tensor:
+        """Reference implementation: explicit recurrent scan. Slow but simple."""
         batch, length = x.shape
         D = self.n_channels
         device = x.device
         dtype = x.dtype
 
-        # Build complex eigenvalues a_d = exp(alpha_d + i * omega_d)
-        alpha = self._get_alpha().to(device=device, dtype=dtype)      # (D,)
-        omega = self.omega.to(device=device, dtype=dtype)             # (D,)
-        # a_d in complex form: (D,)
-        a = torch.complex(alpha, omega).exp()                         # (D,) complex
+        alpha = self._get_alpha().to(device=device, dtype=dtype)
+        omega = self.omega.to(device=device, dtype=dtype)
+        a = torch.complex(alpha, omega).exp()                         # (D,)
+        b = torch.complex(self.b_real, self.b_imag).to(device=device) # (D,)
 
-        # Input projection b_d: (D,) complex
-        b = torch.complex(self.b_real, self.b_imag).to(device=device) # (D,) complex
-
-        # Initialize hidden state
         h_prev = torch.zeros(batch, D, dtype=torch.complex64, device=device)
-
-        # Output buffer
         H = torch.zeros(batch, length, D, dtype=torch.complex64, device=device)
+        x_c = x.to(torch.complex64)
 
-        # Cast x to complex for the recurrence
-        x_c = x.to(torch.complex64)  # (batch, length)
-
-        # Recurrent scan (O(L*D) time, O(D) memory per step)
-        # Broadcasting: a is (D,), b is (D,), x_c[:, t] is (batch,)
         for t in range(length):
-            # h_t^{(d)} = a_d * h_{t-1}^{(d)} + b_d * x_t
             h_prev = a[None, :] * h_prev + b[None, :] * x_c[:, t:t + 1]
             H[:, t, :] = h_prev
+        return H
+
+    def _forward_fft(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Fast implementation via FFT-based convolution.
+
+        Uses the identity: for a stable first-order linear recurrence
+            h_t = a * h_{t-1} + b * x_t,  h_0 = 0
+        the closed-form solution is
+            h_t = sum_{tau=0}^{t} a^tau * b * x_{t-tau}
+        which equals the convolution (x * g)[t] with kernel
+            g[tau] = b * a^tau  for tau >= 0.
+
+        We compute this convolution in parallel for all D channels
+        using FFT. Kernel length is truncated to the "effective support"
+        of a^tau, i.e. where |a^tau| has decayed below a threshold, to
+        keep the cost O(L log L) rather than O(L^2).
+        """
+        batch, length = x.shape
+        D = self.n_channels
+        device = x.device
+        dtype = x.dtype
+
+        # --- Build complex per-channel parameters ---
+        alpha = self._get_alpha().to(device=device, dtype=dtype)      # (D,)
+        omega = self.omega.to(device=device, dtype=dtype)             # (D,)
+        a = torch.complex(alpha, omega).exp()                         # (D,) complex
+        b = torch.complex(self.b_real, self.b_imag).to(device=device) # (D,) complex
+
+        # --- Determine effective kernel length per channel ---
+        # |a|^K = exp(alpha * K).  We want K such that |a|^K < threshold.
+        # => K > log(threshold) / alpha.  Alpha is negative, so K is positive.
+        threshold = 1e-4
+        alpha_min = alpha.min().clamp(max=-1e-6)  # most slowly decaying channel
+        K_needed = int(math.ceil(math.log(threshold) / alpha_min.item()))
+        K = min(K_needed, length)  # can't be longer than the signal
+
+        # --- Build kernel g[d, tau] = b_d * a_d^tau, shape (D, K) ---
+        tau = torch.arange(K, device=device, dtype=dtype)             # (K,)
+        # a^tau = exp(tau * log(a)) = exp(tau * (alpha + i*omega))
+        log_a = torch.complex(alpha, omega)                           # (D,)
+        # Outer product: (D, K) = log_a[:, None] * tau[None, :]
+        exponent = log_a[:, None] * tau[None, :]                      # (D, K)
+        g = b[:, None] * torch.exp(exponent)                          # (D, K) complex
+
+        # --- FFT-based convolution ---
+        # We need: H[b, t, d] = sum_{tau=0}^{K-1} g[d, tau] * x[b, t-tau]
+        # This is a causal convolution of x (batch, length) with g (D, K).
+        # Output length = length (causal, same-length).
+        # Strategy: pad both to L + K - 1, FFT, multiply, IFFT, truncate.
+
+        n_fft = length + K - 1
+        # Round up to next power of 2 for FFT efficiency
+        n_fft = 1 << (n_fft - 1).bit_length()
+
+        # FFT of input: x is real, so rfft is fine. Shape: (batch, n_fft//2 + 1)
+        # But we need complex output, so we use fft on a complex-cast input.
+        x_c = x.to(torch.complex64)                                   # (batch, length)
+        X = torch.fft.fft(x_c, n=n_fft)                               # (batch, n_fft) complex
+
+        # FFT of kernel for each channel: (D, n_fft) complex
+        G = torch.fft.fft(g, n=n_fft)                                 # (D, n_fft) complex
+
+        # Multiply in freq domain: broadcast to (batch, D, n_fft)
+        Y = X[:, None, :] * G[None, :, :]                             # (batch, D, n_fft)
+
+        # IFFT, take first `length` samples (causal truncation)
+        H = torch.fft.ifft(Y, n=n_fft)[:, :, :length]                 # (batch, D, length)
+
+        # Transpose to (batch, length, D) to match recurrent output shape
+        H = H.transpose(1, 2).contiguous()                            # (batch, length, D)
 
         return H
 
