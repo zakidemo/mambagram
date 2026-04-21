@@ -89,3 +89,23 @@ Built on top of the excellent [mamba-ssm](https://github.com/state-spaces/mamba)
 ## Contact
 
 For questions, issues, or collaboration: open a GitHub issue or contact `zakaria.naili@univ-annaba.dz>`.
+
+## Current Status
+
+**As of April 2026:** Empirical results collected on two benchmarks
+(ICBHI 2017 4-class respiratory sound classification, ESC-50
+environmental sound classification) show MambaGram underperforming
+fixed Mel-spectrograms by ~3-4 percentage points under matched-capacity
+shallow classifier conditions. Full training logs, cached datasets,
+and reproducible scripts are committed.
+
+**Paper in preparation:** IEEE Signal Processing Letters,
+targeting the theoretical SSM-Gabor equivalence, the diagnostic
+methodology that uncovered a non-obvious initialization bug
+(`b_imag` must not be zero-initialized), and the honest empirical
+limits of learnable diagonal-complex-SSM front-ends for audio
+classification.
+
+**Reproducing the results:** see `experiments/02_train_icbhi.py`
+and `experiments/03_train_esc50.py`. Data loaders handle dataset
+download (ICBHI requires registration; ESC-50 is openly available).
