@@ -282,12 +282,17 @@ class ICBHIDataset(Dataset):
         segment = segment.squeeze(0)  # (time,)
 
         # Pad or center-crop to fixed length
+        # Pad or crop to fixed length
+        # - Short cycles: repeat-pad (tile the cycle) to avoid 'silence shortcut'
+        # - Long cycles: crop (random during training, center during eval)
         L = segment.shape[0]
         if L < self.target_length:
-            # Zero-pad on the right
-            segment = torch.nn.functional.pad(segment, (0, self.target_length - L))
+            # Tile the segment to reach target length
+            n_repeats = (self.target_length + L - 1) // L  # ceil
+            segment = segment.repeat(n_repeats)[:self.target_length]
         elif L > self.target_length:
-            # Center crop
+            # Center crop deterministically (augmentation is handled in collate
+            # or separate training dataset wrapper if needed)
             offset = (L - self.target_length) // 2
             segment = segment[offset:offset + self.target_length]
 

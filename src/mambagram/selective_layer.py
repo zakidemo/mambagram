@@ -112,11 +112,13 @@ class SelectiveMambaGramLayer(nn.Module):
         raw_alpha_init = torch.log(torch.expm1(-alpha_init))
         self.raw_alpha = nn.Parameter(raw_alpha_init)
 
-        # Input projection b_d (complex, parameterized as two real vectors)
+        # See MambaGramLayer note: b_imag must not start at zero.
         b_mag = 1.0 / math.sqrt(n_channels)
-        self.b_real = nn.Parameter(torch.full((n_channels,), b_mag))
-        self.b_imag = nn.Parameter(torch.zeros(n_channels))
-
+        g = torch.Generator().manual_seed(0)
+        b_phase = torch.rand(n_channels, generator=g) * 2 * math.pi
+        self.b_real = nn.Parameter(b_mag * torch.cos(b_phase))
+        self.b_imag = nn.Parameter(b_mag * torch.sin(b_phase))
+        
         # --- Selectivity: small MLP mapping x_t to Delta_t ---
         # Input dim is 1 (scalar audio sample). Output dim is 1 (scalar Delta).
         # Could also be per-channel (output dim = D); we start with shared.

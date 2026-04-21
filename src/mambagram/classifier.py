@@ -48,22 +48,35 @@ class MelFrontend(nn.Module):
 
 class MambaGramFrontendWrapper(nn.Module):
     """
-    Wraps a MambaGram layer to output a log-magnitude spectrogram.
+    Wraps a MambaGram layer to output a dB-compressed power spectrogram.
+
+    The compression matches torchaudio.transforms.AmplitudeToDB with
+    top_db=80 applied to power (|h|^2), giving the CNN head features
+    in the same dynamic range as MelFrontend.
 
     Output shape: (B, T, D) — same as MelFrontend.
     """
+
+    TOP_DB = 80.0  # matches Mel baseline
 
     def __init__(self, layer: nn.Module):
         super().__init__()
         self.layer = layer
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # (B, L) -> (B, L, D) complex -> magnitude -> log
+        # (B, L) -> (B, L, D) complex
         h = self.layer(x)
-        # Magnitude then log-compression (mimics log-Mel)
-        mag = h.abs()
-        return torch.log1p(mag)  # log(1 + |h|) for numerical stability
-
+        # Power spectrogram
+        power = h.abs() ** 2                                  # (B, L, D), real
+        # Per-sample peak for top_db clamping
+        # log10 of power, then scaled by 10 to get dB
+        eps = 1e-10
+        db = 10.0 * torch.log10(power + eps)                  # (B, L, D)
+        # Clamp to top_db below the per-sample maximum (matches AmplitudeToDB)
+        max_per_sample = db.amax(dim=(1, 2), keepdim=True)    # (B, 1, 1)
+        db_clamped = torch.clamp(db, min=max_per_sample - self.TOP_DB)
+        # Return in the same range as Mel (roughly [-80, 0])
+        return db_clamped - max_per_sample                    # (B, L, D), <= 0
 
 class ShallowCNNHead(nn.Module):
     """
