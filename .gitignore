@@ -27,23 +27,18 @@ env/
 ENV/
 .venv/
 mambagram_env/
-
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb_checkpoints
-
 # VS Code
 .vscode/
 *.code-workspace
-
 # PyCharm
 .idea/
-
 # OS
 .DS_Store
 Thumbs.db
 desktop.ini
-
 # Project-specific: do not commit these
 data/
 results/
@@ -59,7 +54,6 @@ wandb/
 runs/
 logs/
 mlruns/
-
 # Paper build artifacts
 paper/*.aux
 paper/*.log
@@ -70,7 +64,6 @@ paper/*.synctex.gz
 paper/*.fls
 paper/*.fdb_latexmk
 paper/*.toc
-
 # Large files / temporary
 *.tmp
 *.bak
