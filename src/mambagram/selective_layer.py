@@ -127,8 +127,16 @@ class SelectiveMambaGramLayer(nn.Module):
         )
         # Initialize so that softplus(out) starts near 1.0
         # (i.e., Delta_t = 1.0 initially; pure baseline behavior)
+        # Initialize so Delta_t starts near 1.0 at init.
+        # Delta is computed as: delta_min + (delta_max - delta_min) * sigmoid(raw)
+        # We want delta = 1.0, so we need:
+        #   sigmoid(raw) = (1.0 - delta_min) / (delta_max - delta_min)
+        # => raw = logit((1.0 - delta_min) / (delta_max - delta_min))
+        target_normalized = (1.0 - delta_min) / (delta_max - delta_min)
+        target_normalized = max(min(target_normalized, 0.999), 0.001)  # numerical safety
+        target_raw = math.log(target_normalized / (1.0 - target_normalized))
         nn.init.zeros_(self.delta_mlp[-1].weight)
-        nn.init.constant_(self.delta_mlp[-1].bias, math.log(math.expm1(1.0)))
+        nn.init.constant_(self.delta_mlp[-1].bias, target_raw)
 
     @staticmethod
     def _mel_spaced(n: int, f_min: float, f_max: float) -> torch.Tensor:

@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mambagram"
+version = "0.0.2"
+description = "Adaptive Time-Frequency Representations via Selective State Space Models"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "zakineli"}]
+
+[tool.setuptools.packages.find]
+where = ["src"]

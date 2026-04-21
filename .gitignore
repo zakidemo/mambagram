@@ -76,4 +76,4 @@ paper/*.toc
 *.bak
 *.swp
 *~
-.cache/
+.cache/data/
