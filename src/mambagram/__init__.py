@@ -6,14 +6,18 @@ from mambagram.selective_layer import SelectiveMambaGramLayer
 from mambagram.gated_layer import GatedMambaGramLayer
 from mambagram.datasets import SyntheticAudioDataset
 
+from mambagram.classifier import AudioClassifier
+from mambagram.icbhi import ICBHIDataset, LABEL_NAMES
+
 __version__ = "0.0.4"
 __all__ = [
     "MambaGramLayer",
     "SelectiveMambaGramLayer",
     "GatedMambaGramLayer",
     "SyntheticAudioDataset",
+    "AudioClassifier",
+    "ICBHIDataset",
+    "LABEL_NAMES",
 ]
 
-from mambagram.classifier import AudioClassifier
 
-__all__ += ["AudioClassifier"]
